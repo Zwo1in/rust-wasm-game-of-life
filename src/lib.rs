@@ -2,6 +2,7 @@ mod utils;
 
 use wasm_bindgen::prelude::*;
 use std::fmt;
+use js_sys;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -34,8 +35,8 @@ impl Universe {
     pub fn new(width: u32, height: u32) -> Universe {
         use Cell::*;
         let cells = (0..width*height)
-            .map(|i| {
-                if i%2 == 0 || i%7 == 0 {
+            .map(|_| {
+                if js_sys::Math::random() < 0.3 {
                     Alive
                 } else {
                     Dead
@@ -55,11 +56,11 @@ impl Universe {
 
     fn live_neighbours_cnt(&self, row: u32, col: u32) -> u8 {
         let mut cnt = 0;
-        for delta_x in [self.width-1, 0, 1].iter().cloned() {
-            for delta_y in [self.height-1, 0, 1].iter().cloned() {
+        for delta_x in [self.height-1, 0, 1].iter().cloned() {
+            for delta_y in [self.width-1, 0, 1].iter().cloned() {
                 if delta_x == 0 && delta_y == 0 { continue; }
-                let x = (row + delta_x) % self.width;
-                let y = (col + delta_y) % self.height;
+                let x = (row + delta_x) % self.height;
+                let y = (col + delta_y) % self.width;
                 cnt += self.cells[self.index(x, y)] as u8;
             }
         }
@@ -69,16 +70,18 @@ impl Universe {
     pub fn tick(&mut self) {
         use Cell::*;
         let mut next = self.cells.clone();
-        for x in 0..self.width {
-            for y in 0..self.height {
-                let cell = next[self.index(x, y)];
-                let alive_neighbours = self.live_neighbours_cnt(x, y);
-                next[self.index(x, y)] = match (cell, alive_neighbours) {
+        for row in 0..self.height {
+            for col in 0..self.width {
+                let idx = self.index(row, col);
+                let cell = next[idx];
+                let alive_neighbours = self.live_neighbours_cnt(row, col);
+                let next_cell = match (cell, alive_neighbours) {
                     (Alive, n) if n < 2 || n > 3 => Dead,
                     (Alive, 2) | (Alive, 3)      => Alive,
                     (Dead, 3)                    => Alive,
                     (otherwise, _)               => otherwise,
-                }
+                };
+                next[idx] = next_cell;
             }
         }
         self.cells = next;
